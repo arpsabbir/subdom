@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/miekg/dns"
 	"github.com/logrusorgru/aurora"
 )
 
@@ -19,8 +18,7 @@ const (
 	ResultResponseError resultStatus = "response error"
 	ResultVulnerable    resultStatus = "vulnerable"
 	ResultNotVulnerable resultStatus = "not vulnerable"
-	ResultCNAMEError    resultStatus = "cname error"
-	ResultDNSCheck     resultStatus = "dns check"
+	ResultCNAME        resultStatus = "cname"
 )
 
 type Result struct {
@@ -30,37 +28,35 @@ type Result struct {
 	ResponseBody string
 }
 
+// checkSubdomain checks the given subdomain for vulnerabilities and handles CNAME records.
 func (c *Config) checkSubdomain(subdomain string) Result {
 	// Perform the CNAME lookup
 	cname, err := net.LookupCNAME(subdomain)
 	if err != nil {
-		// If CNAME lookup fails, use the original URL
-		if c.HTTPS {
-			subdomain = "https://" + subdomain
-		} else {
-			subdomain = "http://" + subdomain
-		}
-	} else if cname != "" && cname != subdomain {
-		// Handle CNAME: Use the CNAME target
-		rootDomain := extractRootDomain(cname)
-		if rootDomain != "" {
-			// Perform DNS and SOA checks
-			dnsCheckResult := checkDNSRecordsForCNAME(rootDomain)
-			if dnsCheckResult != "" {
-				return Result{
-					ResStatus:    ResultDNSCheck,
-					Status:       aurora.Yellow("DNS CHECK"),
-					Entry:        Fingerprint{},
-					ResponseBody: dnsCheckResult,
-				}
-			}
-		}
-		// Fall back to HTTP check for CNAME
-		subdomain = "http://" + cname
+		// If CNAME lookup fails, proceed with the original subdomain URL
+		return c.checkURL(subdomain)
 	}
 
-	// Perform HTTP request
-	resp, err := c.client.Get(subdomain)
+	if cname != "" && cname != subdomain {
+		fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
+		return c.checkURL(cname)
+	}
+
+	// If no CNAME, use the original URL
+	return c.checkURL(subdomain)
+}
+
+// checkURL performs HTTP request and matches response with fingerprints.
+func (c *Config) checkURL(url string) Result {
+	if !isValidUrl(url) {
+		if c.HTTPS {
+			url = "https://" + url
+		} else {
+			url = "http://" + url
+		}
+	}
+
+	resp, err := c.client.Get(url)
 	if err != nil {
 		return Result{ResStatus: ResultHTTPError, Status: aurora.Red("HTTP ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
 	}
@@ -95,4 +91,41 @@ func (c *Config) matchResponse(body string) Result {
 					ResponseBody: body,
 				}
 			}
-	
+		}
+	}
+	return Result{
+		ResStatus:    ResultNotVulnerable,
+		Status:       aurora.Red("NOT VULNERABLE"),
+		Entry:        Fingerprint{},
+		ResponseBody: body,
+	}
+}
+
+func hasNonVulnerableIndicators(fp Fingerprint) bool {
+	return fp.NXDomain
+}
+
+func confirmsVulnerability(body string, fp Fingerprint) bool {
+	if fp.NXDomain {
+		return false
+	}
+
+	if fp.Fingerprint != "" {
+		re, err := regexp.Compile(fp.Fingerprint)
+		if err != nil {
+			log.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
+			return false
+		}
+		if re.MatchString(body) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isValidUrl is a placeholder function to validate URLs.
+func isValidUrl(url string) bool {
+	// Add your URL validation logic here
+	return true
+}
