@@ -1,9 +1,8 @@
 package runner
 
 import (
-	"io"
-	"log"
-	"regexp"
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/logrusorgru/aurora"
@@ -12,10 +11,9 @@ import (
 type resultStatus string
 
 const (
-	ResultHTTPError     resultStatus = "http error"
-	ResultResponseError resultStatus = "response error"
-	ResultVulnerable    resultStatus = "vulnerable"
+	ResultCNAME         resultStatus = "cname"
 	ResultNotVulnerable resultStatus = "not vulnerable"
+	ResultVulnerable    resultStatus = "vulnerable"
 )
 
 type Result struct {
@@ -25,41 +23,42 @@ type Result struct {
 	ResponseBody string
 }
 
+// checkSubdomain checks the given subdomain for CNAME records and matches with fingerprints.
 func (c *Config) checkSubdomain(subdomain string) Result {
-	url := subdomain
-	if !isValidUrl(url) {
-		if c.HTTPS {
-			url = "https://" + subdomain
-		} else {
-			url = "http://" + subdomain
-		}
-	}
-
-	resp, err := c.client.Get(url)
+	// Perform the CNAME lookup
+	cname, err := c.LookupCNAME(subdomain)
 	if err != nil {
-		return Result{ResStatus: ResultHTTPError, Status: aurora.Red("HTTP ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return Result{ResStatus: ResultResponseError, Status: aurora.Red("RESPONSE ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
+		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
 	}
 
-	body := string(bodyBytes)
+	if cname != "" && cname != subdomain {
+		fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
+		return c.matchCNAMEWithFingerprints(cname)
+	}
 
-	return c.matchResponse(body)
+	// If no CNAME, use the original subdomain
+	return c.matchCNAMEWithFingerprints(subdomain)
 }
 
-func (c *Config) matchResponse(body string) Result {
+// LookupCNAME performs a CNAME lookup.
+func (c *Config) LookupCNAME(domain string) (string, error) {
+	cname, err := net.LookupCNAME(domain)
+	if err != nil {
+		return "", fmt.Errorf("error resolving CNAME for %s: %v", domain, err)
+	}
+	return cname, nil
+}
+
+// matchCNAMEWithFingerprints checks if the CNAME matches any fingerprints.
+func (c *Config) matchCNAMEWithFingerprints(cname string) Result {
 	for _, fp := range c.fingerprints {
-		if strings.Contains(body, fp.Fingerprint) {
-			if confirmsVulnerability(body, fp) {
+		if strings.Contains(cname, fp.Fingerprint) {
+			if confirmsVulnerability(cname, fp) {
 				return Result{
 					ResStatus:    ResultVulnerable,
 					Status:       aurora.Green("VULNERABLE"),
 					Entry:        fp,
-					ResponseBody: body,
+					ResponseBody: cname,
 				}
 			}
 			if hasNonVulnerableIndicators(fp) {
@@ -67,7 +66,7 @@ func (c *Config) matchResponse(body string) Result {
 					ResStatus:    ResultNotVulnerable,
 					Status:       aurora.Red("NOT VULNERABLE"),
 					Entry:        fp,
-					ResponseBody: body,
+					ResponseBody: cname,
 				}
 			}
 		}
@@ -76,7 +75,7 @@ func (c *Config) matchResponse(body string) Result {
 		ResStatus:    ResultNotVulnerable,
 		Status:       aurora.Red("NOT VULNERABLE"),
 		Entry:        Fingerprint{},
-		ResponseBody: body,
+		ResponseBody: cname,
 	}
 }
 
@@ -92,7 +91,7 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 	if fp.Fingerprint != "" {
 		re, err := regexp.Compile(fp.Fingerprint)
 		if err != nil {
-			log.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
+			fmt.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
 			return false
 		}
 		if re.MatchString(body) {
