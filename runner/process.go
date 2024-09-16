@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -77,7 +78,10 @@ func Process(config *Config) error {
 func processor(subdomainCh <-chan string, resCh chan<- *subdomainResult, c *Config, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for subdomain := range subdomainCh {
-		result := c.checkSubdomain(subdomain)
+		// Here, you need to handle the subdomain request appropriately
+		// Assuming a function `checkSubdomain` handles the subdomain directly
+
+		result := c.checkSubdomain(subdomain) // Check the subdomain, adjust as needed
 
 		res := &subdomainResult{
 			Subdomain:     subdomain,
@@ -116,7 +120,7 @@ func distributeSubdomains(subdomains []string, subdomainCh chan<- string) {
 // collectResults gathers results from resCh and stores them in the results slice.
 func collectResults(resCh <-chan *subdomainResult, results *[]*subdomainResult, config *Config) {
 	for r := range resCh {
-		if config.Output != "" && (!config.OnlyVuln || r.Status == "vulnerable") {
+		if config.Output != "" && (!config.OnlyVuln || r.Status == "VULNERABLE") {
 			*results = append(*results, r)
 		}
 	}
