@@ -3,7 +3,6 @@ package runner
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"regexp"
