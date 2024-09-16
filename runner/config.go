@@ -17,7 +17,6 @@ type Config struct {
 	fingerprints []Fingerprint
 }
 
-// Removed initHTTPClient since it's no longer needed
 func (c *Config) loadFingerprints() error {
 	fingerprints, err := Fingerprints()
 	if err != nil {
