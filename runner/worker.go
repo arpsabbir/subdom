@@ -1,11 +1,12 @@
 package runner
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"net"
 	"regexp"
 	"strings"
-	"net"
 
 	"github.com/logrusorgru/aurora"
 )
@@ -17,6 +18,7 @@ const (
 	ResultResponseError resultStatus = "response error"
 	ResultVulnerable    resultStatus = "vulnerable"
 	ResultNotVulnerable resultStatus = "not vulnerable"
+	ResultCNAME        resultStatus = "cname"
 )
 
 type Result struct {
@@ -26,13 +28,32 @@ type Result struct {
 	ResponseBody string
 }
 
+// checkSubdomain performs a CNAME lookup and then checks for vulnerabilities
 func (c *Config) checkSubdomain(subdomain string) Result {
-	url := subdomain
+	// Perform the CNAME lookup
+	cname, err := net.LookupCNAME(subdomain)
+	if err != nil {
+		// Handle error if CNAME lookup fails
+		fmt.Printf("Error resolving CNAME for %s: %v\n", subdomain, err)
+		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
+	}
+
+	if cname != "" && cname != subdomain {
+		fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
+		return c.checkURL(cname)
+	}
+
+	// If no CNAME, use the original subdomain
+	return c.checkURL(subdomain)
+}
+
+// checkURL performs HTTP request and matches response with fingerprints.
+func (c *Config) checkURL(url string) Result {
 	if !isValidUrl(url) {
 		if c.HTTPS {
-			url = "https://" + subdomain
+			url = "https://" + url
 		} else {
-			url = "http://" + subdomain
+			url = "http://" + url
 		}
 	}
 
@@ -52,6 +73,7 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 	return c.matchResponse(body)
 }
 
+// matchResponse checks if the response body matches any of the fingerprints.
 func (c *Config) matchResponse(body string) Result {
 	for _, fp := range c.fingerprints {
 		if strings.Contains(body, fp.Fingerprint) {
@@ -81,10 +103,12 @@ func (c *Config) matchResponse(body string) Result {
 	}
 }
 
+// hasNonVulnerableIndicators checks if a fingerprint indicates non-vulnerability.
 func hasNonVulnerableIndicators(fp Fingerprint) bool {
 	return fp.NXDomain
 }
 
+// confirmsVulnerability checks if the response body matches the fingerprint criteria.
 func confirmsVulnerability(body string, fp Fingerprint) bool {
 	if fp.NXDomain {
 		return false
@@ -103,3 +127,4 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 
 	return false
 }
+
