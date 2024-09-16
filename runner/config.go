@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"time"
 )
 
 type Config struct {
