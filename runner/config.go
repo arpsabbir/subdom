@@ -19,8 +19,6 @@ type Config struct {
 }
 
 // Removed initHTTPClient since it's no longer needed
-// Add a proper method or remove unnecessary functions
-
 func (c *Config) loadFingerprints() error {
 	fingerprints, err := Fingerprints()
 	if err != nil {
