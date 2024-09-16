@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"regexp"
+	"sync"
+	"regex"
+
 	"github.com/logrusorgru/aurora"
 )
 
@@ -28,34 +30,33 @@ type Result struct {
 func (c *Config) checkSubdomain(subdomain string) Result {
 	cname, err := getCNAMERecord(subdomain)
 	if err != nil {
-		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), ResponseBody: err.Error()}
+		fmt.Printf("Error retrieving CNAME for %s: %v\n", subdomain, err)
+		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
 	}
 
-	if cname != "" && cname != subdomain {
-		fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
-		return c.matchCNAMEWithFingerprints(cname)
+	if cname == "" {
+		cname = "No CNAME record"
 	}
 
-	// If no CNAME, use the original subdomain
-	return c.matchCNAMEWithFingerprints(subdomain)
+	fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
+	return c.matchCNAMEWithFingerprints(cname)
 }
 
 // getCNAMERecord performs the dig command to get the CNAME record for a single subdomain.
 func getCNAMERecord(subdomain string) (string, error) {
 	cmd := exec.Command("dig", "+short", "CNAME", subdomain)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
+	var out, stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
-
 	err := cmd.Run()
+
 	if err != nil {
-		return "", fmt.Errorf("error executing dig command for %s: %v, stderr: %s", subdomain, err, stderr.String())
+		return "", fmt.Errorf("error executing dig command for %s: %v\nstderr: %s", subdomain, err, stderr.String())
 	}
 
 	cname := strings.TrimSpace(out.String())
 	if cname == "" {
-		return "No CNAME record found", nil
+		return "No CNAME record", nil
 	}
 
 	return cname, nil
