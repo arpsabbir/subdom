@@ -2,10 +2,7 @@ package runner
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net"
-	"regexp"
 	"strings"
 
 	"github.com/logrusorgru/aurora"
@@ -14,112 +11,89 @@ import (
 type resultStatus string
 
 const (
-	ResultHTTPError     resultStatus = "http error"
-	ResultResponseError resultStatus = "response error"
 	ResultVulnerable    resultStatus = "vulnerable"
 	ResultNotVulnerable resultStatus = "not vulnerable"
 	ResultCNAME        resultStatus = "cname"
 )
 
 type Result struct {
-	ResStatus    resultStatus
-	Status       aurora.Value
-	Entry        Fingerprint
-	ResponseBody string
+	ResStatus resultStatus
+	Status    aurora.Value
+	Entry     Fingerprint
 }
 
-// checkSubdomain checks the given subdomain for vulnerabilities and handles CNAME records.
+type Config struct {
+	fingerprints []Fingerprint
+	HTTPS        bool
+	client       *http.Client // Ensure this is set if needed for any future use
+}
+
 func (c *Config) checkSubdomain(subdomain string) Result {
 	// Perform the CNAME lookup
 	cname, err := net.LookupCNAME(subdomain)
 	if err != nil {
-		// If CNAME lookup fails, proceed with the original subdomain URL
-		return c.checkURL(subdomain)
+		fmt.Printf("Error resolving CNAME for %s: %v\n", subdomain, err)
+		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
 	}
 
 	if cname != "" && cname != subdomain {
 		fmt.Printf("CNAME for %s: %s\n", subdomain, cname)
-		return c.checkURL(cname)
+		return c.validateCNAME(cname)
 	}
 
-	// If no CNAME, use the original URL
-	return c.checkURL(subdomain)
+	// If no CNAME, use the original subdomain
+	return c.validateCNAME(subdomain)
 }
 
-// checkURL performs HTTP request and matches response with fingerprints.
-func (c *Config) checkURL(url string) Result {
-	if !isValidUrl(url) {
-		if c.HTTPS {
-			url = "https://" + url
-		} else {
-			url = "http://" + url
-		}
-	}
-
-	resp, err := c.client.Get(url)
-	if err != nil {
-		return Result{ResStatus: ResultHTTPError, Status: aurora.Red("HTTP ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return Result{ResStatus: ResultResponseError, Status: aurora.Red("RESPONSE ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
-	}
-
-	body := string(bodyBytes)
-
-	return c.matchResponse(body)
-}
-
-func (c *Config) matchResponse(body string) Result {
+func (c *Config) validateCNAME(cname string) Result {
+	// For each fingerprint, check if it matches the CNAME (assuming fingerprints are domain names or patterns)
 	for _, fp := range c.fingerprints {
-		if strings.Contains(body, fp.Fingerprint) {
-			if confirmsVulnerability(body, fp) {
+		if strings.Contains(cname, fp.Fingerprint) {
+			if confirmsVulnerability(cname, fp) {
 				return Result{
-					ResStatus:    ResultVulnerable,
-					Status:       aurora.Green("VULNERABLE"),
-					Entry:        fp,
-					ResponseBody: body,
+					ResStatus: ResultVulnerable,
+					Status:    aurora.Green("VULNERABLE"),
+					Entry:     fp,
 				}
 			}
 			if hasNonVulnerableIndicators(fp) {
 				return Result{
-					ResStatus:    ResultNotVulnerable,
-					Status:       aurora.Red("NOT VULNERABLE"),
-					Entry:        fp,
-					ResponseBody: body,
+					ResStatus: ResultNotVulnerable,
+					Status:    aurora.Red("NOT VULNERABLE"),
+					Entry:     fp,
 				}
 			}
 		}
 	}
 	return Result{
-		ResStatus:    ResultNotVulnerable,
-		Status:       aurora.Red("NOT VULNERABLE"),
-		Entry:        Fingerprint{},
-		ResponseBody: body,
+		ResStatus: ResultNotVulnerable,
+		Status:    aurora.Red("NOT VULNERABLE"),
+		Entry:     Fingerprint{},
 	}
 }
 
 func hasNonVulnerableIndicators(fp Fingerprint) bool {
+	// Add your logic here to determine if the fingerprint has non-vulnerable indicators
 	return fp.NXDomain
 }
 
-func confirmsVulnerability(body string, fp Fingerprint) bool {
+func confirmsVulnerability(cname string, fp Fingerprint) bool {
 	if fp.NXDomain {
 		return false
 	}
 
 	if fp.Fingerprint != "" {
-		re, err := regexp.Compile(fp.Fingerprint)
-		if err != nil {
-			log.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
-			return false
-		}
-		if re.MatchString(body) {
+		if strings.Contains(cname, fp.Fingerprint) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// isValidUrl is a placeholder function to validate URLs.
+// You can remove or modify this function as needed.
+func isValidUrl(url string) bool {
+	// Add your URL validation logic here if needed
+	return true
 }
