@@ -26,7 +26,21 @@ type Result struct {
 	Entry        Fingerprint
 	ResponseBody string
 }
+func (c *Config) checkDNSRecord(subdomain string) bool {
+	// Execute dig command to check if subdomain has DNS records
+	cmd := exec.Command("dig", "+short", subdomain)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		log.Printf("Error executing dig command: %v", err)
+		return false
+	}
 
+	// Check if output contains any records
+	output := out.String()
+	return strings.TrimSpace(output) != ""
+}
 func (c *Config) checkSubdomain(subdomain string) Result {
 	// Perform dig command to check if subdomain exists
 	if !c.checkDNSRecord(subdomain) {
@@ -58,21 +72,7 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 	return c.matchResponse(body)
 }
 
-func (c *Config) checkDNSRecord(subdomain string) bool {
-	// Execute dig command to check if subdomain has DNS records
-	cmd := exec.Command("dig", "+short", subdomain)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		log.Printf("Error executing dig command: %v", err)
-		return false
-	}
 
-	// Check if output contains any records
-	output := out.String()
-	return strings.TrimSpace(output) != ""
-}
 
 func (c *Config) matchResponse(body string) Result {
 	// Placeholder implementation
