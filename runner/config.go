@@ -1,8 +1,6 @@
 package runner
 
 import (
-	"crypto/tls"
-	"net/http"
 	"time"
 )
 
@@ -20,19 +18,8 @@ type Config struct {
 	fingerprints []Fingerprint
 }
 
-func (s *Config) {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.VerifySSL},
-	}
-
-	timeout := time.Duration(s.Timeout) * time.Second
-	client := &http.Client{
-		Timeout:   timeout,
-		Transport: tr,
-	}
-
-	s.client = client
-}
+// Removed initHTTPClient since it's no longer needed
+// Add a proper method or remove unnecessary functions
 
 func (c *Config) loadFingerprints() error {
 	fingerprints, err := Fingerprints()
