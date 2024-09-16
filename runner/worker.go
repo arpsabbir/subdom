@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 	"github.com/logrusorgru/aurora"
+	"regexp"
 )
 
 type resultStatus string
@@ -73,7 +74,7 @@ func hasNonVulnerableIndicators(fp Fingerprint) bool {
 	return fp.NXDomain
 }
 
-func confirmsVulnerability(body string, fp Fingerprint) bool {
+func confirmsVulnerability(cname string, fp Fingerprint) bool {
 	if fp.NXDomain {
 		return false
 	}
@@ -84,7 +85,7 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 			fmt.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
 			return false
 		}
-		if re.MatchString(body) {
+		if re.MatchString(cname) {
 			return true
 		}
 	}
