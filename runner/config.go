@@ -17,11 +17,10 @@ type Config struct {
 	Targets      string
 	Target       string
 	Output       string
-	client       *http.Client
 	fingerprints []Fingerprint
 }
 
-func (s *Config) initHTTPClient() {
+func (s *Config) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: !s.VerifySSL},
 	}
