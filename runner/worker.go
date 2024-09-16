@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-
 	"github.com/logrusorgru/aurora"
 )
 
@@ -26,7 +25,7 @@ type Result struct {
 // checkSubdomain checks the given subdomain for CNAME records and matches with fingerprints.
 func (c *Config) checkSubdomain(subdomain string) Result {
 	// Perform the CNAME lookup
-	cname, err := c.LookupCNAME(subdomain)
+	cname, err := net.LookupCNAME(subdomain)
 	if err != nil {
 		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
 	}
@@ -38,15 +37,6 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 
 	// If no CNAME, use the original subdomain
 	return c.matchCNAMEWithFingerprints(subdomain)
-}
-
-// LookupCNAME performs a CNAME lookup.
-func (c *Config) LookupCNAME(domain string) (string, error) {
-	cname, err := net.LookupCNAME(domain)
-	if err != nil {
-		return "", fmt.Errorf("error resolving CNAME for %s: %v", domain, err)
-	}
-	return cname, nil
 }
 
 // matchCNAMEWithFingerprints checks if the CNAME matches any fingerprints.
