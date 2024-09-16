@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"regexp"
 
 	"github.com/logrusorgru/aurora"
 )
@@ -60,6 +59,14 @@ func (c *Config) getCNAMEWithDig(subdomain string) (string, error) {
 	}
 
 	cname := strings.TrimSpace(out.String())
+	if cname == "" {
+		if stderr.Len() > 0 {
+			fmt.Printf("[DEBUG] Dig stderr: %s\n", stderr.String())
+		}
+		fmt.Printf("[DEBUG] No CNAME record found for subdomain: %s\n", subdomain)
+		return "No CNAME record", nil
+	}
+
 	fmt.Printf("[DEBUG] Raw dig output: %s\n", out.String())
 	fmt.Printf("[DEBUG] Parsed CNAME: %s\n", cname)
 	return cname, nil
