@@ -2,7 +2,7 @@ package runner
 
 import (
 	"crypto/tls"
-	"net/http"
+	"net"
 	"time"
 )
 
