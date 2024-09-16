@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"net"
 	"regexp"
 	"strings"
 
@@ -16,6 +18,8 @@ const (
 	ResultResponseError resultStatus = "response error"
 	ResultVulnerable    resultStatus = "vulnerable"
 	ResultNotVulnerable resultStatus = "not vulnerable"
+	ResultCNAMEError    resultStatus = "cname error"
+	ResultDNSCheck     resultStatus = "dns check"
 )
 
 type Result struct {
@@ -26,16 +30,36 @@ type Result struct {
 }
 
 func (c *Config) checkSubdomain(subdomain string) Result {
-	url := subdomain
-	if !isValidUrl(url) {
+	// Perform the CNAME lookup
+	cname, err := net.LookupCNAME(subdomain)
+	if err != nil {
+		// If CNAME lookup fails, use the original URL
 		if c.HTTPS {
-			url = "https://" + subdomain
+			subdomain = "https://" + subdomain
 		} else {
-			url = "http://" + subdomain
+			subdomain = "http://" + subdomain
 		}
+	} else if cname != "" && cname != subdomain {
+		// Handle CNAME: Use the CNAME target
+		rootDomain := extractRootDomain(cname)
+		if rootDomain != "" {
+			// Perform DNS and SOA checks
+			dnsCheckResult := checkDNSRecordsForCNAME(rootDomain)
+			if dnsCheckResult != "" {
+				return Result{
+					ResStatus:    ResultDNSCheck,
+					Status:       aurora.Yellow("DNS CHECK"),
+					Entry:        Fingerprint{},
+					ResponseBody: dnsCheckResult,
+				}
+			}
+		}
+		// Fall back to HTTP check for CNAME
+		subdomain = "http://" + cname
 	}
 
-	resp, err := c.client.Get(url)
+	// Perform HTTP request
+	resp, err := c.client.Get(subdomain)
 	if err != nil {
 		return Result{ResStatus: ResultHTTPError, Status: aurora.Red("HTTP ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
 	}
@@ -101,4 +125,28 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 	}
 
 	return false
+}
+
+// extractRootDomain extracts the root domain from a CNAME record.
+func extractRootDomain(cname string) string {
+	parts := strings.Split(cname, ".")
+	if len(parts) > 2 {
+		return strings.Join(parts[len(parts)-2:], ".")
+	}
+	return ""
+}
+
+// checkDNSRecordsForCNAME performs DNS and SOA lookups for the root domain.
+func checkDNSRecordsForCNAME(domain string) string {
+	soaRecords, err := net.LookupSOA(domain)
+	if err != nil {
+		return fmt.Sprintf("SOA ERROR: %v", err)
+	}
+
+	if len(soaRecords) > 0 {
+		soaRecord := soaRecords[0]
+		return fmt.Sprintf("SOA Record: %s %s %d %d %d %d %d", soaRecord.MName, soaRecord.RName, soaRecord.Serial, soaRecord.Refresh, soaRecord.Retry, soaRecord.Expire, soaRecord.Minimum)
+	}
+
+	return "No SOA record found"
 }
