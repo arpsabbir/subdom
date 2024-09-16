@@ -28,3 +28,10 @@ func isValidUrl(toTest string) bool {
 	_, err := url.ParseRequestURI(toTest)
 	return err == nil
 }
+// isEnabled returns "Enabled" or "Disabled" based on the boolean value.
+func isEnabled(enabled bool) string {
+    if enabled {
+        return "Enabled"
+    }
+    return "Disabled"
+}
