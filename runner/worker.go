@@ -123,9 +123,3 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 
 	return false
 }
-
-// isValidUrl is a placeholder function to validate URLs.
-func isValidUrl(url string) bool {
-	// Add your URL validation logic here
-	return true
-}
