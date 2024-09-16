@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/logrusorgru/aurora"
 )
 
@@ -94,59 +95,4 @@ func (c *Config) matchResponse(body string) Result {
 					ResponseBody: body,
 				}
 			}
-		}
-	}
-	return Result{
-		ResStatus:    ResultNotVulnerable,
-		Status:       aurora.Red("NOT VULNERABLE"),
-		Entry:        Fingerprint{},
-		ResponseBody: body,
-	}
-}
-
-func hasNonVulnerableIndicators(fp Fingerprint) bool {
-	return fp.NXDomain
-}
-
-func confirmsVulnerability(body string, fp Fingerprint) bool {
-	if fp.NXDomain {
-		return false
-	}
-
-	if fp.Fingerprint != "" {
-		re, err := regexp.Compile(fp.Fingerprint)
-		if err != nil {
-			log.Printf("Error compiling regex for fingerprint %s: %v", fp.Fingerprint, err)
-			return false
-		}
-		if re.MatchString(body) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// extractRootDomain extracts the root domain from a CNAME record.
-func extractRootDomain(cname string) string {
-	parts := strings.Split(cname, ".")
-	if len(parts) > 2 {
-		return strings.Join(parts[len(parts)-2:], ".")
-	}
-	return ""
-}
-
-// checkDNSRecordsForCNAME performs DNS and SOA lookups for the root domain.
-func checkDNSRecordsForCNAME(domain string) string {
-	soaRecords, err := net.LookupSOA(domain)
-	if err != nil {
-		return fmt.Sprintf("SOA ERROR: %v", err)
-	}
-
-	if len(soaRecords) > 0 {
-		soaRecord := soaRecords[0]
-		return fmt.Sprintf("SOA Record: %s %s %d %d %d %d %d", soaRecord.MName, soaRecord.RName, soaRecord.Serial, soaRecord.Refresh, soaRecord.Retry, soaRecord.Expire, soaRecord.Minimum)
-	}
-
-	return "No SOA record found"
-}
+	
