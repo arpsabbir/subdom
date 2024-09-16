@@ -3,9 +3,9 @@ package runner
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
-	"regexp"
 	"github.com/logrusorgru/aurora"
 )
 
@@ -26,10 +26,9 @@ type Result struct {
 
 // checkSubdomain checks the given subdomain for CNAME records and matches with fingerprints.
 func (c *Config) checkSubdomain(subdomain string) Result {
-	// Perform the CNAME lookup using the dig command
-	cname, err := c.getCNAMEWithDig(subdomain)
+	cname, err := getCNAMERecord(subdomain)
 	if err != nil {
-		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
+		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), ResponseBody: err.Error()}
 	}
 
 	if cname != "" && cname != subdomain {
@@ -41,35 +40,24 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 	return c.matchCNAMEWithFingerprints(subdomain)
 }
 
-// getCNAMEWithDig executes the dig command to get the CNAME record and captures both stdout and stderr.
-func (c *Config) getCNAMEWithDig(subdomain string) (string, error) {
-	fmt.Printf("[DEBUG] Executing dig command for subdomain: %s\n", subdomain)
+// getCNAMERecord performs the dig command to get the CNAME record for a single subdomain.
+func getCNAMERecord(subdomain string) (string, error) {
 	cmd := exec.Command("dig", "+short", "CNAME", subdomain)
-
-	// Capture output and error
-	var out, stderr bytes.Buffer
+	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
-	
+
 	err := cmd.Run()
 	if err != nil {
-		fmt.Printf("[ERROR] Error executing dig command: %v\n", err)
-		fmt.Printf("[ERROR] STDERR: %s\n", stderr.String())
-		return "", err
+		return "", fmt.Errorf("error executing dig command for %s: %v, stderr: %s", subdomain, err, stderr.String())
 	}
 
 	cname := strings.TrimSpace(out.String())
 	if cname == "" {
-		if stderr.Len() > 0 {
-			fmt.Printf("[DEBUG] Dig stderr: %s\n", stderr.String())
-		}
-		fmt.Printf("[DEBUG] No CNAME record found for subdomain: %s\n", subdomain)
-		return "No CNAME record", nil
+		return "No CNAME record found", nil
 	}
 
-	// Log raw dig output and parsed CNAME
-	fmt.Printf("[DEBUG] Raw dig output: %s\n", out.String())
-	fmt.Printf("[DEBUG] Parsed CNAME: %s\n", cname)
 	return cname, nil
 }
 
