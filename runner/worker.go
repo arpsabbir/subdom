@@ -2,11 +2,9 @@ package runner
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/logrusorgru/aurora"
@@ -77,7 +75,9 @@ func (c *Config) checkDNSRecord(subdomain string) bool {
 }
 
 func (c *Config) matchResponse(body string) Result {
-	// Implementation for matching the response body
+	// Placeholder implementation
+	// You need to implement this function based on your specific needs
+	return Result{ResStatus: ResultNotVulnerable, Status: aurora.Green("NO VULNERABILITY DETECTED"), Entry: Fingerprint{}, ResponseBody: body}
 }
 
 func hasNonVulnerableIndicators(fp Fingerprint) bool {
@@ -85,5 +85,13 @@ func hasNonVulnerableIndicators(fp Fingerprint) bool {
 }
 
 func confirmsVulnerability(body string, fp Fingerprint) bool {
-	// Implementation to confirm vulnerability based on the response body
+	// Placeholder implementation
+	// You need to implement this function based on your specific needs
+	return false
+}
+
+// Utility function to validate URLs (you might need to implement this)
+func isValidUrl(url string) bool {
+	// Placeholder URL validation
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
 }
