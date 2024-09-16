@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 	"regexp"
 
 	"github.com/logrusorgru/aurora"
