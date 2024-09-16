@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"regexp"
 	"github.com/logrusorgru/aurora"
 )
 
