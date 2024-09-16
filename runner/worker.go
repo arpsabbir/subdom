@@ -22,11 +22,6 @@ type Result struct {
 	Entry     Fingerprint
 }
 
-type Config struct {
-	fingerprints []Fingerprint
-	HTTPS        bool
-	client       *http.Client // Ensure this is set if needed for any future use
-}
 
 func (c *Config) checkSubdomain(subdomain string) Result {
 	// Perform the CNAME lookup
@@ -91,9 +86,3 @@ func confirmsVulnerability(cname string, fp Fingerprint) bool {
 	return false
 }
 
-// isValidUrl is a placeholder function to validate URLs.
-// You can remove or modify this function as needed.
-func isValidUrl(url string) bool {
-	// Add your URL validation logic here if needed
-	return true
-}
