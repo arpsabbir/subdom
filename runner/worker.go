@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"github.com/logrusorgru/aurora"
 	"regexp"
+	"github.com/logrusorgru/aurora"
 )
 
 type resultStatus string
