@@ -6,9 +6,6 @@ Subdomain takeover tool which works based on matching response fingerprints from
         <img src="https://img.shields.io/twitter/follow/return_0x.svg?style=social&logo=twitter"
             alt="follow on Twitter"></a>
 
-
-![Subzy subdomain takeover](https://i.imgur.com/ggB8zKx.png "Subzy subdomain takeover")
-
 ### Installation
 
 ```bash
