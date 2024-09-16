@@ -2,7 +2,7 @@ package runner
 
 import (
 	"fmt"
-	"net"
+	"os/exec"
 	"strings"
 	"github.com/logrusorgru/aurora"
 	"regexp"
@@ -23,10 +23,9 @@ type Result struct {
 	ResponseBody string
 }
 
-// checkSubdomain checks the given subdomain for CNAME records and matches with fingerprints.
+// checkSubdomain checks the given subdomain for CNAME records using dig and matches with fingerprints.
 func (c *Config) checkSubdomain(subdomain string) Result {
-	// Perform the CNAME lookup
-	cname, err := net.LookupCNAME(subdomain)
+	cname, err := c.getCNAMEWithDig(subdomain)
 	if err != nil {
 		return Result{ResStatus: ResultCNAME, Status: aurora.Red("CNAME ERROR"), Entry: Fingerprint{}}
 	}
@@ -38,6 +37,19 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 
 	// If no CNAME, use the original subdomain
 	return c.matchCNAMEWithFingerprints(subdomain)
+}
+
+// getCNAMEWithDig executes the dig command to get the CNAME record.
+func (c *Config) getCNAMEWithDig(subdomain string) (string, error) {
+	cmd := exec.Command("dig", "+short", "CNAME", subdomain)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the output to extract the CNAME
+	cname := strings.TrimSpace(string(output))
+	return cname, nil
 }
 
 // matchCNAMEWithFingerprints checks if the CNAME matches any fingerprints.
