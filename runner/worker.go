@@ -90,8 +90,4 @@ func confirmsVulnerability(body string, fp Fingerprint) bool {
 	return false
 }
 
-// Utility function to validate URLs (you might need to implement this)
-func isValidUrl(url string) bool {
-	// Placeholder URL validation
-	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
-}
+
