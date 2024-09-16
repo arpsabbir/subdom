@@ -13,12 +13,10 @@ import (
 
 func Process(config *Config) error {
 	fingerprints, err := Fingerprints()
-
 	if err != nil {
 		return fmt.Errorf("Process: %v", err)
 	}
 
-	config.initHTTPClient()
 	config.loadFingerprints()
 	subdomains := getSubdomains(config)
 
