@@ -37,14 +37,12 @@ func (c *Config) checkSubdomain(subdomain string) Result {
 
 	resp, err := c.client.Get(url)
 	if err != nil {
-		log.Printf("Error fetching %s: %v", url, err)
 		return Result{ResStatus: ResultHTTPError, Status: aurora.Red("HTTP ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error reading response body from %s: %v", url, err)
 		return Result{ResStatus: ResultResponseError, Status: aurora.Red("RESPONSE ERROR"), Entry: Fingerprint{}, ResponseBody: ""}
 	}
 
